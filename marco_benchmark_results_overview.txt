@@ -1,0 +1,30 @@
+cache_enabled
+  requests=1000
+  final_source_counts={'llm': 41, 'validation': 49, 'cache': 910}
+  route_class_counts={'pure_miss_llm': 40, 'validation_success': 49, 'cache_hit': 910, 'validation_fallback_llm': 1}  
+  first_seen_route_class_counts={'pure_miss_llm': 40}      
+  repeat_route_class_counts={'validation_success': 49, 'cache_hit': 910, 'validation_fallback_llm': 1}
+  wall_ms: avg=226.75 p50=85.43 p95=622.21
+  app_latency_ms: avg=189.78 p50=56.00 p95=501.00
+  cost_usd: total=0.002476 avg=0.000002
+  scores: cache_avg=0.9865 cross_avg=0.9849
+
+cache_disabled
+  requests=1000
+  final_source_counts={'llm': 1000}
+  route_class_counts={'pure_miss_llm': 1000}
+  first_seen_route_class_counts={'pure_miss_llm': 40}      
+  repeat_route_class_counts={'pure_miss_llm': 960}
+  wall_ms: avg=2673.89 p50=1988.31 p95=6594.99
+  app_latency_ms: avg=2614.66 p50=1941.00 p95=6255.00      
+  cost_usd: total=0.061323 avg=0.000061
+  scores: cache_avg=0.0000 cross_avg=0.0000
+
+comparison
+  {
+  "wall_avg_speedup": 11.7923,
+  "app_avg_speedup": 13.7772,
+  "cost_total_reduction_pct": 95.962,
+  "cache_enabled_fast_path_rate": 0.959,
+  "cache_disabled_fast_path_rate": 0.0
+}

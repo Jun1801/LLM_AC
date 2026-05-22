@@ -1,0 +1,120 @@
+{
+  "metadata": {
+    "base_url": "http://127.0.0.1:8080",
+    "iterations": 5,
+    "prompt": "Need access to quarterly finance report",
+    "validation_prompt_used": "Need access to quarterly",
+    "confirm_retries": 3,
+    "run_id": "f21d12cb-65ab-4936-adae-d36b7602e595"
+  },
+  "summaries": [
+    {
+      "name": "cache_miss",
+      "samples": 5,
+      "source_counts": {
+        "llm": 5
+      },
+      "wall_ms": {
+        "avg": 3877.0656199965742,
+        "p50": 4051.2631999954465,
+        "p95": 6776.508999995713,
+        "min": 1998.675999995612,
+        "max": 6776.508999995713
+      },
+      "app_latency_ms": {
+        "avg": 3103.4,
+        "p50": 2283.0,
+        "p95": 6087.0,
+        "min": 1969.0,
+        "max": 6087.0
+      },
+      "cost_usd": {
+        "total": 0.0003375,
+        "avg": 6.75e-05,
+        "p50": 6.75e-05,
+        "p95": 6.824999999999999e-05
+      },
+      "scores": {
+        "cache_avg": 0.0,
+        "cross_avg": 0.0
+      },
+      "tokens": {
+        "prompt_total": 1510,
+        "completion_total": 185,
+        "total": 1695
+      }
+    },
+    {
+      "name": "validation_band",
+      "samples": 5,
+      "source_counts": {
+        "validation": 5
+      },
+      "wall_ms": {
+        "avg": 360.55228000186617,
+        "p50": 208.55529999971623,
+        "p95": 1080.078400002094,
+        "min": 96.45090000412893,
+        "max": 1080.078400002094
+      },
+      "app_latency_ms": {
+        "avg": 120.8,
+        "p50": 95.0,
+        "p95": 231.0,
+        "min": 80.0,
+        "max": 231.0
+      },
+      "cost_usd": {
+        "total": 0.0,
+        "avg": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "scores": {
+        "cache_avg": 0.8564959,
+        "cross_avg": 0.9995859498126368
+      },
+      "tokens": {
+        "prompt_total": 0,
+        "completion_total": 0,
+        "total": 0
+      }
+    },
+    {
+      "name": "cache_hit",
+      "samples": 5,
+      "source_counts": {
+        "cache": 5
+      },
+      "wall_ms": {
+        "avg": 142.98166000080528,
+        "p50": 77.33890000235988,
+        "p95": 432.3246999992989,
+        "min": 55.82539999886649,
+        "max": 432.3246999992989
+      },
+      "app_latency_ms": {
+        "avg": 47.8,
+        "p50": 48.0,
+        "p95": 61.0,
+        "min": 34.0,
+        "max": 61.0
+      },
+      "cost_usd": {
+        "total": 0.0,
+        "avg": 0.0,
+        "p50": 0.0,
+        "p95": 0.0
+      },
+      "scores": {
+        "cache_avg": 1.0,
+        "cross_avg": 0.0
+      },
+      "tokens": {
+        "prompt_total": 0,
+        "completion_total": 0,
+        "total": 0
+      }
+    }
+  ]
+}

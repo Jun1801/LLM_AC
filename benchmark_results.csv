@@ -1,0 +1,4 @@
+name,samples,source_counts,wall_avg_ms,wall_p50_ms,wall_p95_ms,wall_min_ms,wall_max_ms,app_avg_ms,app_p50_ms,app_p95_ms,app_min_ms,app_max_ms,cost_total_usd,cost_avg_usd,cost_p50_usd,cost_p95_usd,prompt_tokens_total,completion_tokens_total,total_tokens_total
+cache_miss,10,"{""llm"": 10}",6482.35,4783.18,21623.46,3237.05,21623.46,5736.8,4324.0,18774.0,2964.0,18774.0,0.000605,6.1e-05,6.1e-05,6.2e-05,2598,359,2957
+validation_band,10,"{""validation"": 10}",303.94,193.86,1000.65,118.83,1000.65,143.8,107.0,361.0,36.0,361.0,0.0,0.0,0.0,0.0,0,0,0
+cache_hit,10,"{""cache"": 10}",496.78,254.91,2392.95,165.93,2392.95,355.8,124.0,2119.0,76.0,2119.0,0.0,0.0,0.0,0.0,0,0,0

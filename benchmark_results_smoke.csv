@@ -1,0 +1,4 @@
+name,samples,source_counts,validation_prompt_used,wall_avg_ms,wall_p50_ms,wall_p95_ms,wall_min_ms,wall_max_ms,app_avg_ms,app_p50_ms,app_p95_ms,app_min_ms,app_max_ms,cost_total_usd,cost_avg_usd,cost_p50_usd,cost_p95_usd,avg_cache_similarity,avg_cross_encoder_score,prompt_tokens_total,completion_tokens_total,total_tokens_total
+cache_miss,5,"{""llm"": 5}",,3877.07,4051.26,6776.51,1998.68,6776.51,3103.4,2283.0,6087.0,1969.0,6087.0,0.000338,6.8e-05,6.8e-05,6.8e-05,0.0,0.0,1510,185,1695
+validation_band,5,"{""validation"": 5}",Need access to quarterly,360.55,208.56,1080.08,96.45,1080.08,120.8,95.0,231.0,80.0,231.0,0.0,0.0,0.0,0.0,0.8565,0.9996,0,0,0
+cache_hit,5,"{""cache"": 5}",,142.98,77.34,432.32,55.83,432.32,47.8,48.0,61.0,34.0,61.0,0.0,0.0,0.0,0.0,1.0,0.0,0,0,0

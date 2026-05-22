@@ -1,0 +1,384 @@
+% This is samplepaper.tex, a sample chapter demonstrating the
+% LLNCS macro package for Springer Computer Science proceedings;
+% Version 2.21 of 2022/01/12
+%
+\documentclass[runningheads]{llncs}
+%
+\usepackage[T1]{fontenc}
+% T1 fonts will be used to generate the final print and online PDFs,
+% so please use T1 fonts in your manuscript whenever possible.
+% Other font encondings may result in incorrect characters.
+%
+\usepackage{graphicx}
+% Used for displaying a sample figure. If possible, figure files should
+% be included in EPS format.
+%
+% If you use the hyperref package, please uncomment the following two lines
+% to display URLs in blue roman font according to Springer's eBook style:
+%\usepackage{color}
+%\renewcommand\UrlFont{\color{blue}\rmfamily}
+%\urlstyle{rm}
+%
+\usepackage{amsmath}
+\usepackage{booktabs}
+\begin{document}
+%
+\title{Safety-Preserving Semantic Caching for LLM-Augmented Access Control}
+\titlerunning{Safety-Preserving Semantic Caching for LLM-Augmented Access Control}
+
+\author{Tien-Dung Pham\inst{1} \and
+Laurent D'Orazio\inst{2} \and
+Thi-Huong-Giang Vu\inst{1} \and
+Clara Bertolissi\inst{3}\and
+Sébastien Hervieu\inst{4} \and
+Juba Agoun\inst{5}}
+%
+\authorrunning{Pham et al.}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+%
+\institute{Hanoi University of Science and Technology (HUST), Hanoi, Vietnam \\
+\email{dung.pt2416680@sis.hust.edu.vn} \and Univ Rennes, CNRS, IRISA, Rennes, France \and Univ Orléans, INSA Centre Val de Loire, LIFO (UR 4022), Bourges, France \and ALTEN Group, France \and CNRS, INSA Lyon, Univ Claude Bernard Lyon 1, Univ Lumière Lyon 2, École Centrale de Lyon, LIRIS (UMR 5205), Lyon, France }
+%
+\maketitle              % typeset the header of the contribution
+%
+\begin{abstract}
+Access control systems must enforce precise policies over an increasing proportion of natural-language requests that resist expression as static rules. Large language models (LLMs) can interpret such requests flexibly, but introduce three problems: high per-request latency, non-deterministic outputs on semantically identical inputs, and no stable audit trail. Semantic caching addresses the first two by reusing prior LLM decisions for sufficiently similar requests, but introduces the \emph{cache safety problem}: a cached \texttt{ALLOW} decision may be stale if security-relevant context has changed since it was stored. We present a layered access control pipeline with a safety-preserving cache design: every cache hit triggers a re-evaluation of current context before any decision is returned, providing a zero false-allow rate as an architectural guarantee. We evaluate on 373 purpose-built cases spanning decision correctness (Phase~A, 202), cache safety (Phase~B, 111), and threat screening (Phase~C, 60). The system achieves 98.01\% decision accuracy, 0.0\% false-allow rate, and 30$\times$ latency reduction on cache hits. Ablation confirms the guarantee is architectural: disabling re-evaluation produces 100\% false allow on all 39 near-miss variants, which score $S_{\text{cache}}\approx 1.0$ despite requiring different decisions, proving no similarity threshold can substitute. A threat screening component achieves 97\% attack detection at 7\% false-positive rate when its threshold is calibrated from the observed similarity distribution independently of the cache routing threshold.
+
+\keywords{Access control \and Large language models \and Semantic caching}
+\end{abstract}
+
+%
+%
+\section{Introduction}
+
+Modern enterprise systems must control access to sensitive resources whose appropriate use depends not only on a requester's role and clearance, but also on transient operational context such as ongoing incidents or time windows. Conventional policy engines such as RBAC~\cite{sandhu1996rbac}, ABAC~\cite{xacml2013}, and OPA/Rego~\cite{opa} offer precise, auditable enforcement over well-structured inputs, but have no mechanism for interpreting natural-language purpose fields or reasoning about contextual intent. LLMs can interpret such requests flexibly, yet produce inconsistent decisions for equivalent inputs, offer no stable audit trail, and introduce high per-request latency at scale.
+
+Semantic caching addresses two of these problems directly: by reusing prior LLM decisions for sufficiently similar requests, it eliminates redundant invocations and stabilises outputs on repeated queries. However, caching introduces the \emph{cache safety problem}: a cached \texttt{ALLOW} may become stale if security-relevant context has changed since it was stored. Prior caching systems~\cite{bang2023gptcache,schroeder2025vcache} reuse outputs without safety re-checks, and LLM-based authorization research~\cite{coletti2024sacmat,permllm2025} focuses on policy authoring or output filtering rather than runtime enforcement with safety guarantees. We show empirically that near-miss request pairs --- identical purpose text but different security metadata --- score cosine similarity $\approx 1.0$ to a cached entry yet require a different decision, confirming that no similarity threshold alone can guarantee safety. A further threat arises from adversarial prompts crafted to override or bypass the policy decision point; these must be intercepted before cache lookup to prevent the pipeline from serving or caching a manipulated decision.
+
+This paper makes the following contributions:
+
+i) A layered access control pipeline combining deterministic OPA hard-rule gating, embedding-based semantic caching, and LLM reasoning, where each stage handles only the cases it is designed for, its failure mode is isolated from the others, and every decision is written to an immutable audit stream.
+
+ii) A safety-preserving cache that eliminates the cache safety problem by re-evaluating security-relevant context on every cache hit. Because near-miss requests score cosine similarity $\approx 1.0$ yet require a different decision, no threshold can substitute for this re-evaluation --- making it a strict architectural requirement, not an optimization.
+
+iii) An evaluation and ablation study on 373 oracle-labeled cases (Phase~A: decision correctness, 202; Phase~B: cache safety, 111; Phase~C: threat screening, 60). The system achieves 98.01\% accuracy and 0.0\% false-allow rate with 30$\times$ latency reduction. Ablation confirms that disabling context re-evaluation causes 100\% false allow on all 39 near-miss variants. Threat screening achieves 97\% TPR at 7\% FPR in balanced mode.
+
+\section{Related Work}
+
+\noindent\textbf{Traditional access control models.} Frameworks like RBAC~\cite{sandhu1996rbac} and ABAC~\cite{xacml2013} rely on deterministic rules that are highly auditable but require exhaustive policy authoring and struggle with natural-language requests. Our work uses OPA/Rego~\cite{opa} as the deterministic enforcement layer, delegating contextual decisions to an LLM only when static policies prove insufficient.
+
+\noindent\textbf{LLMs as policy decision points.} Recent work explores LLMs in access control primarily for policy authoring: Coletti et al.~\cite{coletti2024sacmat} pair LLMs with formal JML specifications to generate RBAC-compliant code. PermLLM~\cite{permllm2025} addresses a complementary problem: applying access control to what an LLM is permitted to output, rather than using an LLM as the policy decision point itself.
+\noindent\textbf{Semantic caching and its security.} GPTCache~\cite{bang2023gptcache} established embedding-based cache lookup for LLM responses; vCache~\cite{schroeder2025vcache} shows that static thresholds cannot simultaneously satisfy hit-rate and correctness requirements, proposing user-defined error guarantees instead. Our threshold analysis (Section~3.3) addresses the same limitation via Otsu's method on the naturally clustered access control similarity distribution, requiring no error-rate specification. Afiffy et al.~\cite{safecache2026} show that semantic caches are vulnerable to adversarial queries where minor lexical variations trigger incorrect cache hits, reporting up to 72\% attack success reduction with dedicated defenses. Our threat is orthogonal: near-miss requests carry \emph{identical} text with different security metadata, scoring $S_{\text{cache}}\approx 1.0$ without crafting --- an attack vector that context re-evaluation (Section~3.4) closes at every cache hit.
+
+\section{System Architecture}
+\subsection{Pipeline Overview}
+\begin{figure}
+    \centering    \includegraphics[width=\linewidth, trim={0.5cm 0.5cm 0.5cm 0.5cm}, clip]{figures/mermaid-diagram-2026-05-18-100446.png}
+    \caption{Layered access control pipeline. Requests pass through hard-rule enforcement and threat screening before the semantic cache. $S_{\text{cache}} \geq T_{\text{hit}}$ triggers context re-evaluation (\texttt{ALLOW\_CACHE}); $T_{\text{validate\_low}} \leq S_{\text{cache}} < T_{\text{hit}}$ routes to cross-encoder validation; misses invoke the LLM with OPA post-veto.}
+    \label{fig:pipeline}
+\end{figure}
+
+Each stage handles only the decision class it is built for; deterministic checks are placed first and the LLM is invoked only when no earlier stage can provide a safe answer.
+
+\noindent\textbf{Deterministic pre-filtering.} An incoming request is normalized into a canonical form pairing the natural-language purpose field with structured metadata \{\texttt{role, clearance\_level, resource\_type, incident\_state, \ldots}\}. It then passes through the hard-rule gate (OPA/Rego~\cite{opa}), which evaluates structurally unambiguous deny conditions --- MFA failure, expired session, clearance violation, role--resource mismatch. Violating requests are denied as \texttt{DENY\_HARD}; others pass through without a decision. Surviving requests are encoded by a bi-encoder~\cite{reimers2019sentence} and matched against a store of known adversarial prompt embeddings; high-similarity matches are denied as \texttt{DENY\_THREAT}.
+
+\noindent\textbf{Semantic cache and LLM fallback.} Clean requests are routed by cache similarity score $S_{\text{cache}}$ (Section~3.2). A \texttt{HIT} triggers context re-evaluation of dynamic security conditions (\texttt{incident\_state}, \texttt{time\_window}) against the current request before any cached decision is returned --- this is the mechanism that resolves the cache safety problem (Section~3.4). A \texttt{NEAR-HIT} first passes through a cross-encoder for finer-grained scoring before re-evaluation. A \texttt{MISS} invokes the LLM, which reasons over the request using a two-step chain-of-thought prompt~\cite{wei2022chain}. The LLM proposal is subject to a final OPA post-veto that overrides any decision violating hard policy; the decision is then written to an immutable audit stream and the cache updated.
+
+\subsection{Threshold Configuration}
+Three thresholds configure the pipeline. $S_{\text{cache}} \in [0,1]$ is the cosine similarity to the nearest cached entry. $T_{\text{hit}}$ (upper) and $T_{\text{validate\_low}}$ (lower) govern cache routing: $S_{\text{cache}} \geq T_{\text{hit}}$ classifies a hit; $S_{\text{cache}} < T_{\text{validate\_low}}$ classifies a miss; requests between the two enter cross-encoder validation (\texttt{NEAR-HIT}). $T_{\text{attack}}$ operates independently in threat screening. Formally:
+
+\[
+\text{Route}(S_{\text{cache}}) = \begin{cases}
+\texttt{HIT}      & \text{if } S_{\text{cache}} \geq T_{\text{hit}} \\
+\texttt{NEAR-HIT} & \text{if } T_{\text{validate\_low}} \leq S_{\text{cache}} < T_{\text{hit}} \\
+\texttt{MISS}     & \text{if } S_{\text{cache}} < T_{\text{validate\_low}}
+\end{cases}
+\]
+
+\noindent Four named threshold configurations are provided in Table~\ref{tab:modes}; Section~3.3 describes how $T_{\text{hit}}$ and $T_{\text{validate\_low}}$ can be derived from the observed similarity distribution.
+
+\begin{table}[t]
+\caption{Threshold configuration modes. $T_{\text{attack}}$ governs threat-screening denial.}
+\label{tab:modes}
+\centering
+\renewcommand{\arraystretch}{1}
+\begin{tabular}{lccc}
+\toprule
+Mode & $T_{\text{hit}}$ & $T_{\text{validate\_low}}$ & $T_{\text{attack}}$ \\
+\midrule
+loose        & 0.80 & 0.60 & 0.52 \\
+moderate     & 0.85 & 0.65 & 0.50 \\
+balanced     & 0.90 & 0.70 & 0.50 \\
+strict       & 0.95 & 0.80 & 0.48 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Threshold Analysis via Otsu's Method}
+
+Manual threshold selection assumes a known, stable similarity distribution --- an assumption that breaks when the embedding model or workload changes. We show how the two cache-routing thresholds ($T_{\text{hit}}$ and $T_{\text{validate\_low}}$) can be derived directly from the observed distribution, removing the need for empirical tuning.
+
+\begin{figure}
+    \centering    \includegraphics[width=0.7\linewidth]{figures/similarity_distribution.png}
+    \caption{Cosine similarity distribution of 87 Phase~B variants relative
+to their anchor requests. Three regions are
+visible: artifact-swap variants cluster in $[0.33, 0.63]$; an empty gap
+spans $[0.626, 0.801]$ with no observed samples; paraphrase variants
+cluster in $[0.80, 0.88]$. \textit{Incident-change} and \textit{clearance-change} variants (red, purple) score at
+$S_{\text{cache}} \approx 1.0$ despite requiring different access
+decisions, demonstrating that similarity thresholds alone are
+insufficient for cache safety.}
+    \label{fig:dist}
+\end{figure}
+
+\noindent\textbf{Threshold derivation.} We apply Otsu's method~\cite{otsu1979threshold}, which selects the threshold $T^*$ that maximizes between-class variance of the observed distribution:
+
+$$\sigma^2_B(t) = w_0(t)\,w_1(t)\,[\mu_0(t) - \mu_1(t)]^2, \qquad
+T^* = \arg\max_{t}\;\sigma^2_B(t),$$
+where $w_k(t)$ and $\mu_k(t)$ are the weight and mean of class $k \in \{0,1\}$ at threshold $t$. On our benchmark, $T^* = 0.626$ separates the artifact-swap cluster from all higher-similarity populations. Two operational thresholds follow:
+
+$$T_{\text{validate\_low}} \leftarrow \mathrm{clip}\!\left(\mathrm{Otsu}(\{S_{\text{cache}}\}),\;0.65,\;0.80\right)$$
+$$T_{\text{hit}} \leftarrow \mathrm{clip}\!\left(\hat{g},\;0.85,\;0.97\right),$$
+where $\hat{g}$ is the upper boundary of the empty gap, and $\mathrm{clip}$ constrains values to a safe range. The lower bound $0.85$ for $T_{\text{hit}}$ is set above $\hat{g} = 0.801$ (the minimum observed paraphrase similarity), ensuring all paraphrases are cache hits.
+
+\subsection{Cache Safety: Context Re-evaluation and Metadata Binding}
+
+The cache safety problem arises because embedding similarity is blind to security-relevant metadata: a request may score $S_{\text{cache}} \approx 1.0$ against a cached entry while carrying a different \texttt{incident\_state} or \texttt{sensitivity} value (Figure~\ref{fig:dist}).
+
+We address this with two complementary mechanisms. \textbf{Context re-evaluation} — the primary safety mechanism — re-evaluates dynamic security conditions (\texttt{incident\_state}, \texttt{time\_window}) on every cache hit before any decision is returned; if any condition fails, the request falls through to the LLM, providing the zero false-allow guarantee regardless of similarity score (confirmed by ablation A1, Table~\ref{tab:a1}). \textbf{Metadata binding} partitions metadata into \textit{context fields} (\texttt{role, department, region, resource\_type}), used as ANN pre-filters, and \textit{security-critical fields} (\texttt{incident\_state, sensitivity, clearance\_level}), which must match exactly for a cache entry to be eligible:
+
+$$\text{Eligible}(q, c) = \mathbb{1}[S_{\text{cache}}(q,c) \geq T_{\text{hit}}] \;\wedge\; \mathbb{1}[M_q = M_c]$$
+
+\noindent where $M_q$, $M_c$ are the security-critical fields of request $q$ and cached entry $c$.
+
+\section{Experimental Setup}
+We evaluate the pipeline along three axes: decision correctness, cache safety with efficiency, and threat screening.
+
+\subsection{Dataset}
+
+\noindent\textbf{Phase A --- Decision Correctness.} We construct a synthetic dataset of 202 labeled access requests covering the full policy matrix: 51 hard-deny cases (MFA failure, session expiry, clearance violation, role--resource mismatch, unknown role), 46 soft-rule cases (critical incident, out-of-hours, elevated clearance combined with confidential sensitivity), and 105 LLM-path cases spanning four sensitivity levels and elevated-clearance variants. Ground-truth labels are derived offline from the OPA policy engine, ensuring independence from the system under test.
+
+\noindent\textbf{Phase B --- Cache Benchmark.} We construct 111 cases (24 anchors + 87 variants) to isolate cache behavior. Twenty-four anchor requests warm the cache, one per $(\text{role} \times \text{resource\_type})$ combination. Variants fall into four types: \textit{paraphrase} (same request, different wording; 24 cases), \textit{artifact-swap} (same template, different artifact within resource type; 24 cases), \textit{incident-change} (identical text, \texttt{incident\_state} flipped to \texttt{critical}; 24 cases), and \textit{clearance-change} (identical text, elevated clearance with confidential sensitivity; 15 cases).
+
+\noindent\textbf{Example near-miss pair.} Anchor \texttt{cb-0001}: \texttt{role=analyst}, \texttt{clearance=2}, \texttt{resource=document/internal}, prompt=\emph{``Need access to quarterly finance report''}, \texttt{incident\_state=normal} $\rightarrow$ \texttt{ALLOW} (cached). Its \textit{incident-change} variant is identical in every field except \texttt{incident\_state=critical} $\rightarrow$ \texttt{ESCALATE\_HUMAN}, yet $S_{\text{cache}} \approx 1.0$.
+
+\noindent\textbf{Phase C --- Threat Screening.} We construct 60 test cases: 30 adversarial prompts (3 per class across 10 attack classes including prompt injection, privilege escalation, jailbreak framing, and authority impersonation) and 30 benign controls drawn from Phase~A. Thirty canonical attack seeds (3 per class) populate the threat vector store. $T_{\text{attack}}$ is calibrated from the empirical similarity distribution (benign max $\approx 0.47$, adversarial mean $\approx 0.60$) independently of $T_{\text{hit}}$.
+
+\subsection{Evaluation Protocol}
+
+\noindent\textbf{Metrics.} Decision correctness is evaluated via overall accuracy, false-allow rate (FA), and false-escalation rate (FE). FA is our primary safety metric: misclassifying a \texttt{DENY} or \texttt{ESCALATE} as \texttt{ALLOW} grants unauthorized access. Cache performance is measured by hit rate, precision on hits, and per-path latency (p50/p95 over 30 iterations).
+
+\noindent\textbf{Implementation details.} GPT-4o mini~\cite{openai2024gpt4o} serves as the LLM decision-maker; embeddings use \texttt{all-MiniLM-L6-v2}~\cite{reimers2019sentence} (384-dim); cross-encoder re-scoring uses \texttt{ms-marco-MiniLM-L-6-v2}. Latency benchmarks: 30 iterations, \texttt{balanced} mode ($T_{\text{hit}}=0.90$).
+
+\section{Results}
+\subsection{Decision Correctness (Phase A)}
+
+Table~\ref{tab:phaseA} summarizes the results. The pipeline achieves 98.01\% overall accuracy with a false-allow rate of 0.0\%. All 51 hard-deny cases reach 100\% accuracy. Soft-rule categories perform strongly, driven by the two-step chain-of-thought prompt~\cite{wei2022chain} that separates hard-rule checking from escalation-condition evaluation.
+
+\begin{table}[t]
+\caption{Phase~A decision accuracy by category group (202 evaluated cases).
+FA = false allow, FE = false escalate.}
+\label{tab:phaseA}
+\centering
+\renewcommand{\arraystretch}{1}
+\begin{tabular}{lccc}
+\toprule
+Category group & Cases & Accuracy & Errors \\
+\midrule
+Hard-deny (all types)               & 51  & 100\%   & --- \\
+Soft-rule (critical, OOH, review)   & 46  & 100\%   & --- \\
+LLM-path (standard sensitivity)     & 91  & 100\%   & --- \\
+LLM-path (elevated + restricted)    & 7   & 85.7\%  & 1 FE \\
+LLM-path (elevated + internal)      & 7   & 57.1\%  & 3 FE \\
+\midrule
+\textbf{Overall}                    & 202 & \textbf{98.01\%} & 4 FE, 0 FA \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The four remaining errors (Table~\ref{tab:phaseA}, bottom two rows) share a root cause: the LLM conflates \texttt{sensitivity=restricted} and \texttt{sensitivity=internal} with the escalation condition, which triggers only on \texttt{sensitivity=confidential}.
+
+\subsection{Semantic Cache Benchmark (Phase B)}
+
+\noindent\textbf{Safety and efficiency.} Table~\ref{tab:thresh} shows FA = 0.0\% and cache precision = 1.0 at every threshold tested: every decision served from cache is correct. Table~\ref{tab:a1} confirms the guarantee is architectural --- disabling context re-evaluation raises FA to 100\% on all 39 near-miss variants while leaving safe variants (48) unaffected, confirming that context re-evaluation is the mechanism that closes the cache safety problem.
+
+\noindent\textbf{Threshold insensitivity.} Table~\ref{tab:thresh} summarizes the threshold sweep. Cache hit rate is flat at 27.6\% for all $T_{\text{hit}} \in [0.85, 0.95]$: the similarity distribution (Figure~\ref{fig:dist}) contains no samples in the band $[0.63, 0.80)$ between the artifact-swap and paraphrase clusters, so raising $T_{\text{hit}}$ within $[0.85, 0.95]$ does not alter which variant types are served from cache. At $T_{\text{hit}}=0.80$ (loose mode), hit rate rises to 35.6\% as 7 \textit{artifact-swap} variants (similarity $\in [0.60, 0.63]$, routed through cross-encoder validation) are approved from cache; precision remains 1.0 but semantic matches become more ambiguous, supporting a recommended lower bound of $T_{\text{hit}} \geq 0.85$.
+
+\begin{table}[t]
+\centering
+\renewcommand{\arraystretch}{1}
+\begin{minipage}{0.52\linewidth}
+  \centering
+  \caption{Threshold sweep on Phase~B (111 cases, 4 modes). FA = false-allow rate; Prec. = cache precision.}
+  \label{tab:thresh}
+  \begin{tabular}{lcccc}
+  \toprule
+  Mode & $T_{\text{hit}}$ & Hit rate & Prec. & FA \\
+  \midrule
+  loose    & 0.80 & 0.356 & 1.0 & 0.0\% \\
+  moderate & 0.85 & 0.276 & 1.0 & 0.0\% \\
+  balanced & 0.90 & 0.276 & 1.0 & 0.0\% \\
+  strict   & 0.95 & 0.276 & 1.0 & 0.0\% \\
+  \bottomrule
+  \end{tabular}
+\end{minipage}
+\hfill
+\begin{minipage}{0.44\linewidth}
+  \centering
+  \caption{Latency per decision path on Phase~B (30 iter., \texttt{balanced}). p50/p95 in ms.}
+  \label{tab:latency}
+  \begin{tabular}{lcc}
+  \toprule
+  Path & p50 & p95 \\
+  \midrule
+  Cache hit  & \textbf{71} & 230   \\
+  Validation & 99          & 299   \\
+  LLM miss   & 2,157       & 2,923 \\
+  \bottomrule
+  \end{tabular}
+\end{minipage}
+\end{table}
+
+\noindent\textbf{Latency.} Table~\ref{tab:latency} reports results over 30 iterations per path in \texttt{balanced} mode. The cache-hit path (p50: 71~ms) is approximately 30$\times$ faster than the LLM path (p50: 2,157~ms); the cross-encoder path adds modest overhead (p50: 99~ms), well below the LLM path even at p95.
+
+\subsection{Threat Screening (Phase C)}
+
+Table~\ref{tab:threat} reports results at three $T_{\text{attack}}$ levels. At $T_{\text{attack}}=0.50$ (balanced), the screener achieves 97\% TPR with 7\% FPR; 9 of 10 attack classes reach 100\% detection rate. The sole exception is \textit{authority\_impersonation} at 67\% (2/3), where test variants diverge lexically from all seeds. At $T_{\text{attack}}=0.48$ (strict), all 30 adversarial prompts are detected at the cost of a 10\% FPR.
+
+\begin{table}[t]
+\caption{Threat screening on Phase~C (30 adversarial, 30 benign). TPR = true-positive rate; FPR = false-positive rate (benign blocked).}
+\label{tab:threat}
+\centering
+\renewcommand{\arraystretch}{1}
+\begin{tabular}{lccccc}
+\toprule
+Mode & $T_{\text{attack}}$ & TPR & FPR & Precision & F1 \\
+\midrule
+loose    & 0.52 & 93\%  & 3\%  & 97\% & 0.949 \\
+balanced & 0.50 & 97\%  & 7\%  & 94\% & 0.951 \\
+strict   & 0.48 & 100\% & 10\% & 91\% & 0.952 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Ablation Study}
+
+We isolate the contribution of three pipeline components by disabling each in turn while holding all others constant. Table~\ref{tab:ablation} summarizes the results.
+
+\noindent\textbf{A1 --- Cache re-evaluation disabled.} Without context re-evaluation, all 39 near-miss variants are served the stale cached \texttt{ALLOW} decision (Table~\ref{tab:a1}); cache precision drops from 1.0 to 0.552. This confirms that the safety-preserving cache design (Section~3.4) is non-negotiable: without context re-evaluation, the cache becomes the primary attack surface of the system.
+
+\noindent\textbf{A2 --- Semantic cache disabled.} Removing the cache degrades accuracy from 98.01\% to 95.05\% ($-$2.96~pp), with the false-escalation rate more than doubling from 1.99\% to 4.95\%. Accuracy loss concentrates exclusively in two borderline elevated-clearance categories (57–86\% $\to$ 28.6\%); all other categories remain at 100\%. This establishes that the cache contributes a measurable accuracy benefit beyond latency reduction by transforming stochastic LLM responses into consistent decisions for repeat requests.
+
+\begin{table}[t]
+\caption{Ablation A1 on Phase~B (87 variants). FA\,(on) = full pipeline; FA\,(off) = re-evaluation disabled.}
+\label{tab:a1}
+\centering
+\renewcommand{\arraystretch}{1}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Variant & FA\,(on) & FA\,(off) \\
+\midrule
+Safe (48)      & 0.0\%          & 0.0\%          \\
+Near-miss (39) & \textbf{0.0\%} & \textbf{100\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Ablation on Phase~A (A2, A3). FA = false allow, FE = false escalate,
+RC = reason-code accuracy, LLM calls = invocations / total cases.}
+\label{tab:ablation}
+\centering
+\renewcommand{\arraystretch}{1}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lccccc}
+\toprule
+Variant & Acc. & FA & FE & RC acc. & LLM calls \\
+\midrule
+Full pipeline   & \textbf{98.01\%} & \textbf{0.0\%} & 1.99\% & 47.8\% & 129/202 \\
+A2: no cache    & 95.05\% & 0.0\% & 4.95\% & 48.0\% & 130/202 \\
+A3: no pre-gate & 94.00\% & 0.0\% & 6.00\% & \textbf{23.0\%} & 179/200 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{A3 --- Hard-rule pre-gate disabled.} The LLM alone achieves 94.00\% decision accuracy, but removing the pre-gate causes two critical secondary effects: reason-code accuracy collapses from 47.8\% to 23\%, as hard-deny cases return \texttt{VETO\_}-prefixed codes from the post-LLM veto rather than direct rule-derived codes, breaking downstream routing; and LLM invocations increase from 129 to 179 (+38.8\%), as 51 requests previously denied by the pre-gate now route to the LLM path.
+
+Together, A1--A3 confirm the failure-mode isolation property of contribution~i): disabling any single stage degrades only the class of requests that stage is designed to handle, leaving all other categories unaffected.
+
+\section{Conclusion}
+
+We presented a layered access control pipeline combining deterministic hard-rule enforcement, a safety-preserving semantic cache, and LLM-based reasoning. Evaluated on 373 cases (202 decision-correctness, 111 cache-safety, 60 threat-screening), the system achieves 98.01\% accuracy, 0.0\% false-allow rate, and 30$\times$ latency reduction on cache hits. Four generalizable findings emerge. First, cache safety requires context re-evaluation on every hit --- not stricter thresholds --- because near-miss requests score $S_{\text{cache}} \approx 1.0$ regardless of $T_{\text{hit}}$; ablation confirms that removing re-evaluation produces 100\% false allow on all 39 near-miss variants. Second, the semantic cache contributes 2.96~pp accuracy improvement beyond latency savings by stabilizing LLM outputs on borderline policy categories. Third, the hard-rule pre-gate is essential not only for accuracy but for auditability: removing it collapses reason-code accuracy from 47.8\% to 23\%, breaking downstream routing. Fourth, threat screening via embedding similarity achieves 97\% attack detection at 7\% false-positive rate; the key calibration requirement is that $T_{\text{attack}}$ be derived from the empirical similarity distribution of benign and adversarial prompts independently of $T_{\text{hit}}$, as the two thresholds reflect fundamentally different similarity scales.
+
+\noindent\textbf{Limitations and future work.} Evaluation is limited to synthetic scenarios under a single model pair (\texttt{all-MiniLM-L6-v2} + GPT-4o mini); cross-model validation and production log benchmarks remain future work. Reason-code accuracy (47.8\%) is limited by a taxonomy mismatch between ground-truth labels and LLM output codes; correcting the label schema is the likely remedy. The metadata-binding design (Section~3.4) requires production validation.
+
+%
+% ---- Bibliography ----
+%
+% BibTeX users should specify bibliography style 'splncs04'.
+% References will then be sorted and formatted in the correct style.
+%
+% \bibliographystyle{splncs04}
+% \bibliography{mybibliography}
+%
+\begin{thebibliography}{12}
+
+\bibitem{sandhu1996rbac}
+Sandhu, R.S., Coyne, E.J., Feinstein, H.L., Youman, C.E.: Role-based
+access control models. IEEE Computer \textbf{29}(2), 38--47 (1996).
+\doi{10.1109/2.485845}
+
+\bibitem{xacml2013}
+OASIS: eXtensible Access Control Markup Language (XACML) Version~3.0.
+OASIS Standard (2013). \url{https://docs.oasis-open.org/xacml/3.0}
+
+\bibitem{coletti2024sacmat}
+Coletti, A., et al.: LLM-assisted generation of RBAC policies from
+natural language specifications. In: Proceedings of SACMAT.
+ACM, New York (2024).
+
+\bibitem{opa}
+Open Policy Agent: OPA -- The open policy agent (2024).
+\url{https://www.openpolicyagent.org}
+
+\bibitem{permllm2025}
+Jayaraman, B., et al.: Permissioned {LLM}s: Enforcing access control
+in large language models. In: NeurIPS (2025).
+
+\bibitem{bang2023gptcache}
+Bang, Y., et al.: GPTCache: Semantic cache for LLM queries. In:
+Proceedings of the 3rd Workshop for Natural Language Processing
+Open Source Software (NLP-OSS), pp. 212--218. ACL (2023).
+
+\bibitem{schroeder2025vcache}
+Schroeder, T., et al.: vCache: Verified semantic prompt caching.
+In: Proceedings of the International Conference on Learning
+Representations (ICLR) (2026).
+
+\bibitem{safecache2026}
+Afiffy, M., Fakhr, M.W., Maghraby, F.A.: Enhancing adversarial
+resilience in semantic caching for secure retrieval augmented
+generation systems. Sci.\ Rep.\ \textbf{16}, 5936 (2026).
+\doi{10.1038/s41598-026-36721-w}
+
+\bibitem{reimers2019sentence}
+Reimers, N., Gurevych, I.: Sentence-BERT: Sentence embeddings using
+siamese BERT-networks. In: Proceedings of EMNLP, pp. 3982--3992.
+ACL (2019).
+
+\bibitem{openai2024gpt4o}
+OpenAI: GPT-4o system card. Technical report, OpenAI (2024).
+\url{https://openai.com/index/gpt-4o-system-card}
+
+\bibitem{otsu1979threshold}
+Otsu, N.: A threshold selection method from gray-level histograms.
+IEEE Trans. Syst. Man Cybern. \textbf{9}(1), 62--66 (1979).
+\doi{10.1109/TSMC.1979.4310076}
+
+\bibitem{wei2022chain}
+Wei, J., et al.: Chain-of-thought prompting elicits reasoning in
+large language models. In: Advances in Neural Information Processing Systems (NeurIPS) (2022).
+
+\end{thebibliography}
+\end{document}
