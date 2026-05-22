@@ -25,6 +25,7 @@ from pathlib import Path
 import httpx
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+BENCH_DIR = REPO_ROOT / "eval" / "outputs" / "benchmark"
 
 SWEEP_MODES = [
     ("loose",        0.80),
@@ -60,7 +61,7 @@ def clear_cache() -> None:
 
 
 def run_benchmark(base_url: str, mode: str, t_hit: float) -> dict:
-    script = REPO_ROOT / "scripts" / "evaluate_cache_benchmark.py"
+    script = REPO_ROOT / "eval" / "evaluate_cache_benchmark.py"
     result = subprocess.run(
         [
             sys.executable, str(script),
@@ -75,7 +76,7 @@ def run_benchmark(base_url: str, mode: str, t_hit: float) -> dict:
         print(f"  ERROR: benchmark failed\n{result.stderr}")
         return {}
     # Read the canonical output file rather than parsing mixed stdout
-    out_file = REPO_ROOT / "eval" / "cache_benchmark_results.json"
+    out_file = BENCH_DIR / "cache_benchmark_results.json"
     try:
         data = json.loads(out_file.read_text(encoding="utf-8"))
         return data.get("summary", {})
@@ -151,7 +152,7 @@ def main() -> None:
     print_sweep_table(sweep_results)
 
     # Write consolidated sweep summary
-    out_path = REPO_ROOT / "eval" / "threshold_sweep_summary.json"
+    out_path = BENCH_DIR / "threshold_sweep_summary.json"
     out_path.write_text(
         json.dumps(
             [{"mode": m, "t_hit": t, "summary": s} for m, t, s in sweep_results],

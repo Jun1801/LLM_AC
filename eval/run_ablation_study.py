@@ -31,9 +31,10 @@ import httpx
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EVAL_DIR = REPO_ROOT / "eval"
-PHASE_A_SCRIPT = REPO_ROOT / "scripts" / "evaluate_synthetic_cases.py"
-PHASE_B_SCRIPT = REPO_ROOT / "scripts" / "evaluate_cache_benchmark.py"
-OUT_FILE = EVAL_DIR / "ablation_results.json"
+BENCH_DIR = EVAL_DIR / "outputs" / "benchmark"
+PHASE_A_SCRIPT = EVAL_DIR / "evaluate_synthetic_cases.py"
+PHASE_B_SCRIPT = EVAL_DIR / "evaluate_cache_benchmark.py"
+OUT_FILE = BENCH_DIR / "ablation_results.json"
 
 
 # ---------------------------------------------------------------------------
@@ -64,8 +65,8 @@ def clear_qdrant_cache(base_url: str) -> None:
 
 
 def run_phase_a(base_url: str, tag: str) -> dict:
-    out_json = EVAL_DIR / f"ablation_phase_a_{tag}.json"
-    out_csv = EVAL_DIR / f"ablation_phase_a_{tag}.csv"
+    out_json = BENCH_DIR / f"ablation_phase_a_{tag}.json"
+    out_csv = BENCH_DIR / f"ablation_phase_a_{tag}.csv"
     cmd = [
         sys.executable, str(PHASE_A_SCRIPT),
         "--base-url", base_url,
@@ -87,7 +88,7 @@ def run_phase_a(base_url: str, tag: str) -> dict:
 
 
 def run_phase_b(base_url: str, tag: str, t_hit: float = 0.90) -> dict:
-    out_json = EVAL_DIR / "cache_benchmark_results.json"
+    out_json = BENCH_DIR / "cache_benchmark_results.json"
     cmd = [
         sys.executable, str(PHASE_B_SCRIPT),
         "--base-url", base_url,
@@ -127,7 +128,7 @@ def main() -> None:
     results: dict = {}
 
     # --- Load baseline (prompt_v5 full pipeline) ---
-    baseline_path = EVAL_DIR / "phase_a_eval_results.json"
+    baseline_path = BENCH_DIR / "phase_a_eval_results.json"
     if baseline_path.exists():
         with open(baseline_path) as f:
             baseline_data = json.load(f)

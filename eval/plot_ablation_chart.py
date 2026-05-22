@@ -17,7 +17,7 @@ import matplotlib.patches as mpatches
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-OUT_PNG = REPO_ROOT / "eval" / "ablation_chart.png"
+OUT_PNG = REPO_ROOT / "eval" / "outputs" / "figures" / "ablation_chart.png"
 
 # ----- Phase A data -----
 VARIANTS_A = ["Baseline\n(full pipeline)", "A2: no cache", "A3: no hard-rule\npre-gate"]

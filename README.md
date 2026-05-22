@@ -35,17 +35,31 @@ Requests flow through these stages in order:
 ## Repository Layout
 
 ```
-app/            FastAPI app and domain modules
-  pipeline.py   Core pipeline orchestration
-  mode_manager.py  Threshold configuration (loose/balanced/strict)
-  threat_screen.py Adversarial prompt screening
-  cache_lookup.py  Qdrant embedding cache
-workers/        Async audit and cache-update workers
-policies/       OPA/Rego hard rules
-scripts/        Benchmarking and evaluation scripts
-eval/           Benchmark datasets and results (Phase A/B/C)
-paper/          ADBIS 2026 short paper source
-tests/          Unit and integration tests
+app/                    FastAPI app and domain modules
+  clients/              External service clients (OPA, LLM, Qdrant, Redis, Kafka)
+  pipeline.py           Core pipeline orchestration
+  mode_manager.py       Threshold configuration (loose/balanced/strict)
+  threat_screen.py      Adversarial prompt screening
+  cache_lookup.py       Qdrant embedding cache
+  validation.py         Cross-encoder scoring
+workers/                Async audit and cache-update workers
+policies/               OPA/Rego hard rules (hard.rego, soft.rego)
+eval/                   Evaluation scripts and datasets
+  generate_*.py         Dataset generation (Phase A/B/C)
+  evaluate_*.py         Evaluation runners (Phase A/B/C)
+  run_*.py              Sweep and ablation orchestrators
+  analyze_*.py          Distribution analysis
+  benchmark_latency.py  Per-path latency benchmark
+  macro_benchmark.py    Zipfian workload macro benchmark
+  plot_*.py             Chart generators
+  phase_a_synthetic_cases.jsonl   Phase A dataset (202 cases)
+  phase_b_cache_benchmark.jsonl   Phase B dataset (111 cases)
+  phase_c_threat_benchmark.jsonl  Phase C dataset (60 cases)
+  outputs/              Generated outputs (gitignored)
+    benchmark/          Result JSON/CSV files
+    figures/            PNG charts
+paper/                  ADBIS 2026 short paper source (draft.tex)
+tests/                  Unit and integration tests
 ```
 
 ## Key Endpoints
@@ -74,10 +88,12 @@ MODEL_DEVICE                # cpu or cuda
 ## Running Tests and Benchmarks
 
 ```bash
-pytest                                                        # all tests
-pytest tests/test_pipeline.py                                 # single file
-python scripts/benchmark_latency.py --iterations 30           # latency benchmark
-python scripts/evaluate_threat_screen.py                      # Phase C eval
+pytest                                                              # all tests
+pytest tests/test_pipeline.py                                       # single file
+python eval/benchmark_latency.py --iterations 30                    # latency benchmark
+python eval/evaluate_threat_screen.py                               # Phase C eval
+python eval/run_threshold_sweep.py                                  # threshold sweep
+python eval/run_ablation_study.py --base-url http://127.0.0.1:8080  # ablation study
 ```
 
 ## Threshold Modes

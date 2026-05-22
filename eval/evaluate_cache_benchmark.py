@@ -33,8 +33,8 @@ import httpx
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATASET = REPO_ROOT / "eval" / "phase_b_cache_benchmark.jsonl"
-DEFAULT_JSON_OUT = REPO_ROOT / "eval" / "cache_benchmark_results.json"
-DEFAULT_CSV_OUT = REPO_ROOT / "eval" / "cache_benchmark_results.csv"
+DEFAULT_JSON_OUT = REPO_ROOT / "eval" / "outputs" / "benchmark" / "cache_benchmark_results.json"
+DEFAULT_CSV_OUT = REPO_ROOT / "eval" / "outputs" / "benchmark" / "cache_benchmark_results.csv"
 
 
 @dataclass

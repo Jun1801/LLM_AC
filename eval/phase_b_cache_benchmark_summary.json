@@ -1,0 +1,17 @@
+{
+  "generated_at_utc": "2026-05-07T03:27:47.584601+00:00",
+  "total_cases": 111,
+  "anchor_count": 24,
+  "variant_count": 87,
+  "variant_type_counts": {
+    "paraphrase": 24,
+    "artifact_swap": 24,
+    "near_miss_incident": 24,
+    "near_miss_elevated_conf": 15
+  },
+  "expected_decision_counts": {
+    "ALLOW": 72,
+    "ESCALATE_HUMAN": 39
+  },
+  "safety_note": "_handle_cache_hit() re-evaluates evaluate_soft(req) before returning ALLOW_CACHE. near_miss variants verify this protection: 0% false-allow rate is the correct result. A non-zero rate indicates a regression in the soft-policy re-evaluation path."
+}

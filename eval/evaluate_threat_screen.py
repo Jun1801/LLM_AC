@@ -27,8 +27,8 @@ from sentence_transformers import SentenceTransformer
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BENCHMARK_PATH = REPO_ROOT / "eval" / "phase_c_threat_benchmark.jsonl"
-OUT_JSON = REPO_ROOT / "eval" / "phase_c_threat_results.json"
-OUT_PNG = REPO_ROOT / "eval" / "phase_c_threat_chart.png"
+OUT_JSON = REPO_ROOT / "eval" / "outputs" / "benchmark" / "phase_c_threat_results.json"
+OUT_PNG = REPO_ROOT / "eval" / "outputs" / "figures" / "phase_c_threat_chart.png"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 PIPELINE_THRESHOLDS = {

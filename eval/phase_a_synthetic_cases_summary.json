@@ -1,0 +1,59 @@
+{
+  "generated_at_utc": "2026-05-06T16:46:45.861452+00:00",
+  "label_source": "phase_a_policy_matrix",
+  "assumptions": {
+    "policy_pass_decision": "ALLOW",
+    "policy_pass_reason_code": "POLICY_PASS_EXPECTED_ALLOW",
+    "soft_review_without_ticket_decision": "ESCALATE_HUMAN",
+    "soft_review_with_ticket_decision": "ALLOW_EMERGENCY",
+    "sensitivity_min_clearance": {
+      "public": 0,
+      "internal": 1,
+      "restricted": 2,
+      "confidential": 3
+    }
+  },
+  "case_count": 202,
+  "category_counts": {
+    "policy_pass_public": 24,
+    "policy_pass": 24,
+    "policy_pass_restricted": 24,
+    "policy_pass_confidential": 15,
+    "policy_pass_elevated_internal": 7,
+    "policy_pass_elevated_restricted": 7,
+    "hard_deny_mfa": 7,
+    "hard_deny_session": 7,
+    "hard_deny_clearance_internal": 7,
+    "hard_deny_clearance": 14,
+    "hard_deny_role_resource": 11,
+    "hard_deny_unknown_role": 5,
+    "soft_deny_critical": 7,
+    "soft_deny_out_of_hours": 7,
+    "soft_review": 14,
+    "soft_emergency": 14,
+    "near_miss_soft_allow": 4,
+    "near_miss_soft_deny": 4
+  },
+  "expected_policy_stage_counts": {
+    "llm": 105,
+    "hard_rule": 51,
+    "soft_rule": 46
+  },
+  "expected_decision_counts": {
+    "ALLOW": 105,
+    "DENY": 51,
+    "ESCALATE_HUMAN": 32,
+    "ALLOW_EMERGENCY": 14
+  },
+  "expected_reason_code_counts": {
+    "POLICY_PASS_EXPECTED_ALLOW": 105,
+    "MFA_REQUIRED": 7,
+    "SESSION_INVALID": 7,
+    "CLEARANCE_TOO_LOW": 21,
+    "ROLE_RESOURCE_DENIED": 16,
+    "INCIDENT_CRITICAL": 7,
+    "OUT_OF_HOURS_FAST_PATH_REVIEW": 7,
+    "INCIDENT_ELEVATED_RESTRICTED_FAST_PATH": 18,
+    "EMERGENCY_TICKET_VALID": 14
+  }
+}

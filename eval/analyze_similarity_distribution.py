@@ -27,8 +27,8 @@ from sentence_transformers import SentenceTransformer
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BENCHMARK_PATH = REPO_ROOT / "eval" / "phase_b_cache_benchmark.jsonl"
-OUT_PNG = REPO_ROOT / "eval" / "similarity_distribution.png"
-OUT_JSON = REPO_ROOT / "eval" / "similarity_distribution_stats.json"
+OUT_PNG = REPO_ROOT / "eval" / "outputs" / "figures" / "similarity_distribution.png"
+OUT_JSON = REPO_ROOT / "eval" / "outputs" / "benchmark" / "similarity_distribution_stats.json"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 VARIANT_COLORS = {

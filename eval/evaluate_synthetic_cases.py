@@ -20,8 +20,8 @@ from app.rationale import build_grounding_facts, grounded_facts_only
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATASET_PATH = REPO_ROOT / "eval" / "phase_a_synthetic_cases.jsonl"
-DEFAULT_JSON_OUT = REPO_ROOT / "eval" / "phase_a_eval_results.json"
-DEFAULT_CSV_OUT = REPO_ROOT / "eval" / "phase_a_eval_results.csv"
+DEFAULT_JSON_OUT = REPO_ROOT / "eval" / "outputs" / "benchmark" / "phase_a_eval_results.json"
+DEFAULT_CSV_OUT = REPO_ROOT / "eval" / "outputs" / "benchmark" / "phase_a_eval_results.csv"
 
 ALLOW_LIKE = {"ALLOW", "ALLOW_CACHE", "ALLOW_EMERGENCY"}
 

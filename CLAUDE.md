@@ -34,7 +34,7 @@ pytest tests/test_pipeline.py
 pytest tests/test_pipeline.py::test_name
 
 # Benchmark latency
-python scripts/benchmark_latency.py --iterations 30 --base-url http://127.0.0.1:8080
+python eval/benchmark_latency.py --iterations 30 --base-url http://127.0.0.1:8080
 
 # Start local infrastructure (OPA, Redis, Qdrant)
 docker compose up -d

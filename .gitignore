@@ -49,9 +49,8 @@ model_cache/
 *.onnx
 
 # Eval outputs
-eval/*.json
-eval/*.png
-eval/*.csv
+eval/outputs/benchmark/
+eval/outputs/figures/
 
 # LaTeX auxiliary files
 paper/*.aux
@@ -73,3 +72,9 @@ logs/
 *.override.yml
 
 tasks/
+run.md 
+sample.md 
+todolist.md 
+
+AGENTS.md   
+CLAUDE.md

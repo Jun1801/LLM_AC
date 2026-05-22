@@ -18,7 +18,7 @@ import matplotlib.patches as mpatches
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-OUT_PNG = REPO_ROOT / "eval" / "latency_chart.png"
+OUT_PNG = REPO_ROOT / "eval" / "outputs" / "figures" / "latency_chart.png"
 
 # ----- data -----
 PATHS = ["Cache hit\n(source: cache)", "Validation band\n(source: validation)", "LLM miss\n(source: llm)"]

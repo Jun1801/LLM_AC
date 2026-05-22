@@ -1,0 +1,19 @@
+{
+  "total_records": 90,
+  "seeds": 30,
+  "test_cases": 60,
+  "adversarial_tests": 30,
+  "benign_tests": 30,
+  "attack_classes": [
+    "authority_impersonation",
+    "context_injection",
+    "data_exfiltration",
+    "jailbreak_framing",
+    "policy_bypass",
+    "privilege_escalation",
+    "prompt_injection",
+    "role_override",
+    "social_engineering",
+    "token_stuffing"
+  ]
+}
